@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Factura</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 40px;
+            color: #333;
+        }
+
+        .encabezado {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .empresa {
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .logo {
+            width: 100px;
+            height: auto;
+        }
+
+        .datos-cliente {
+            margin-top: 30px;
+        }
+
+        .datos-cliente h3 {
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+        }
+
+        th, td {
+            border: 1px solid #999;
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        th {
+            background-color: #f0f0f0;
+        }
+
+        .total {
+            text-align: right;
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .footer {
+            margin-top: 60px;
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- Encabezado -->
+    <div class="encabezado">
+        <div class="empresa">
+            CONTROLSTOCK<br>
+            <span style="font-size: 14px; font-weight: normal;">Factura de venta</span>
+        </div>
+        <div>
+            <!-- Si tenés un logo -->
+            <img src="{{ as_url }}" alt="Logo" class="logo">
+        </div>
+    </div>
+
+    <!-- Datos del cliente -->
+    <div class="datos-cliente">
+        <h3>Datos del Cliente</h3>
+        <p><strong>Nombre:</strong> {{ cliente.nombre }}</p>
+        <p><strong>Dirección:</strong> {{ cliente.direccion }}</p>
+        <p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
+        <p><strong>Email:</strong> {{ cliente.email }}</p>
+    </div>
+
+    <!-- Tabla de productos -->
+    <table>
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Precio Unitario</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for compra in compras %}
+            <tr>
+                <td>{{ compra.fecha }}</td>
+                <td>{{ compra.producto }}</td>
+                <td>{{ compra.cantidad }}</td>
+                <td>${{ "%.2f"|format(compra.precio_unitario) }}</td>
+                <td>${{ "%.2f"|format(compra.total) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Total general -->
+    <p class="total">Total a pagar: ${{ "%.2f"|format(total_general) }}</p>
+
+    <!-- Pie de página -->
+    <div class="footer">
+        Gracias por su compra — Esta factura fue generada por CONTROLSTOCK.
+    </div>
+
+</body>
+</html>

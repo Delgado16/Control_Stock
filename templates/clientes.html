@@ -1,0 +1,154 @@
+{% extends "layout.html" %}
+
+{% block title %}Clientes{% endblock %}
+
+{% block main %}
+<div class="container py-5">
+    <h1 class="text-center text-info mb-4">📇 Gestión de Clientes</h1>
+
+    {% if get_flashed_messages() %}
+    <div class="alert alert-primary text-center" role="alert">
+        {{ get_flashed_messages() | join(" ") }}
+    </div>
+    {% endif %}
+
+    <!-- Buscador -->
+    <div class="input-group mb-4">
+        <input type="text" id="busquedaClientes" class="form-control" placeholder="🔍 Buscar cliente por nombre o email...">
+    </div>
+
+    <!-- Botón Agregar Cliente -->
+    <div class="mb-3 text-end">
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#agregarModal">
+            ➕ Agregar Cliente
+        </button>
+    </div>
+
+    <!-- Tabla de Clientes -->
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle text-center" id="tablaClientes">
+            <thead class="table-light">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Dirección</th>
+                    <th>Teléfono</th>
+                    <th>Email</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for cliente in clientes %}
+                <tr>
+                    <td class="nombre">{{ cliente.nombre }}</td>
+                    <td>{{ cliente.direccion }}</td>
+                    <td>{{ cliente.telefono }}</td>
+                    <td class="email">{{ cliente.email }}</td>
+                    <td>
+                        <!-- Editar -->
+                        <button class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal" data-bs-target="#editarModal{{ cliente.id }}">
+                            ✏️
+                        </button>
+
+                        <!-- Eliminar -->
+                        <form action="/clientes/eliminar/{{ cliente.id }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+
+                <!-- Modal Editar Cliente -->
+                <div class="modal fade" id="editarModal{{ cliente.id }}" tabindex="-1" aria-labelledby="editarModalLabel{{ cliente.id }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content shadow">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="editarModalLabel{{ cliente.id }}">Editar Cliente</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            </div>
+                            <form action="/clientes/editar/{{ cliente.id }}" method="POST">
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nombre</label>
+                                        <input type="text" name="nombre" class="form-control" value="{{ cliente.nombre }}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Dirección</label>
+                                        <input type="text" name="direccion" class="form-control" value="{{ cliente.direccion }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Teléfono</label>
+                                        <input type="text" name="telefono" class="form-control" value="{{ cliente.telefono }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" name="email" class="form-control" value="{{ cliente.email }}">
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal Agregar Cliente -->
+    <div class="modal fade" id="agregarModal" tabindex="-1" aria-labelledby="agregarModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content shadow">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="agregarModalLabel">Agregar Cliente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <form action="/clientes/agregar" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" name="nombre" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Dirección</label>
+                            <input type="text" name="direccion" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Teléfono</label>
+                            <input type="text" name="telefono" class="form-control">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-success">Agregar Cliente</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JS para búsqueda en tiempo real -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const input = document.getElementById("busquedaClientes");
+        const filas = document.querySelectorAll("#tablaClientes tbody tr");
+
+        input.addEventListener("input", function () {
+            const valor = this.value.toLowerCase();
+
+            filas.forEach(fila => {
+                const nombre = fila.querySelector(".nombre")?.textContent.toLowerCase() || "";
+                const email = fila.querySelector(".email")?.textContent.toLowerCase() || "";
+
+                fila.style.display = (nombre.includes(valor) || email.includes(valor)) ? "" : "none";
+            });
+        });
+    });
+</script>
+{% endblock %}

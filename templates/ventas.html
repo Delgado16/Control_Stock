@@ -1,0 +1,187 @@
+{% extends "layout.html" %}
+
+{% block main %}
+<h1 class="text-center">Ventas</h1>
+<div class="container">
+    <form action="/ventas" method="post" onsubmit="return validarFormulario()">
+        
+        <!-- Búsqueda de cliente -->
+        <div class="mb-4">
+            <label for="cliente_input" class="form-label">Cliente:</label>
+            <input class="form-control" list="clientesList" id="cliente_input" placeholder="Escriba el nombre del cliente..." autocomplete="off" required>
+            <input type="hidden" name="cliente" id="cliente_id">
+            <datalist id="clientesList">
+                {% for cliente in clientes %}
+                <option data-id="{{ cliente.id }}" value="{{ cliente.nombre }}"></option>
+                {% endfor %}
+            </datalist>
+        </div>
+
+        <!-- Buscador de productos -->
+        <div class="mb-4">
+            <label for="buscador" class="form-label">Buscar producto:</label>
+            <input type="text" id="buscador" class="form-control" placeholder="Escriba el nombre del producto">
+        </div>
+
+        <!-- Tabla de productos encontrados -->
+        <div class="mb-4">
+            <label class="form-label">Resultados de la búsqueda:</label>
+            <table class="table table-bordered text-center" id="tabla-productos">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th>Precio</th>
+                        <th>Stock Disponible</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Productos seleccionados -->
+        <div class="mb-4">
+            <label class="form-label">Productos seleccionados:</label>
+            <table class="table table-bordered text-center" id="tabla-seleccionados">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Precio</th>
+                        <th>Cantidad</th>
+                        <th>Total</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <!-- Total -->
+        <div class="mb-4">
+            <label for="total" class="form-label">Total:</label>
+            <input type="text" id="total" name="total" class="form-control" value="0" readonly>
+        </div>
+
+        <!-- Botón de envío -->
+        <button type="submit" class="btn btn-primary">Procesar Venta</button>
+    </form>
+
+    <!-- Botón Imprimir Factura -->
+    {% if venta_id %}
+    <div class="mt-4">
+        <a href="/factura/pdf/{{ venta_id }}" class="btn btn-outline-success" target="_blank">
+            🖨️ Imprimir Factura en PDF
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+    const productos = {{ productos | tojson }};
+
+    document.getElementById("cliente_input").addEventListener("input", function () {
+        const input = this.value.toLowerCase();
+        const opciones = document.querySelectorAll("#clientesList option");
+        let match = Array.from(opciones).find(opt => opt.value.toLowerCase() === input);
+        document.getElementById("cliente_id").value = match ? match.dataset.id : "";
+    });
+
+    function validarFormulario() {
+        const clienteId = document.getElementById("cliente_id").value;
+        const productosSeleccionados = document.querySelector("#tabla-seleccionados tbody").children.length;
+        if (!clienteId) {
+            alert("Debe seleccionar un cliente válido.");
+            return false;
+        }
+        if (productosSeleccionados === 0) {
+            alert("Debe seleccionar al menos un producto.");
+            return false;
+        }
+        return true;
+    }
+
+    function actualizarTablaProductos(filtro) {
+        const tbody = document.querySelector("#tabla-productos tbody");
+        tbody.innerHTML = "";
+        if (!filtro.trim()) return;
+
+        productos
+            .filter(p => p.nombre.toLowerCase().includes(filtro.toLowerCase()))
+            .forEach(producto => {
+                const fila = document.createElement("tr");
+                fila.innerHTML = `
+                    <td>${producto.nombre}</td>
+                    <td>${producto.descripcion}</td>
+                    <td>${producto.precio}</td>
+                    <td>${producto.stock}</td>
+                    <td><button type="button" class="btn btn-sm btn-success" onclick="agregarProducto(${producto.id})">Agregar</button></td>
+                `;
+                tbody.appendChild(fila);
+            });
+    }
+
+    function agregarProducto(id) {
+        const producto = productos.find(p => p.id === id);
+        const tbody = document.querySelector("#tabla-seleccionados tbody");
+        let fila = tbody.querySelector(`tr[data-id="${id}"]`);
+
+        if (!fila) {
+            fila = document.createElement("tr");
+            fila.setAttribute("data-id", id);
+            fila.innerHTML = `
+                <td>${producto.nombre}</td>
+                <td>${producto.precio}</td>
+                <td>
+                    <div class="d-flex align-items-center justify-content-center">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="modificarCantidad(${id}, -1)">-</button>
+                        <span class="mx-2 cantidad" data-id="${id}">1</span>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="modificarCantidad(${id}, 1)">+</button>
+                    </div>
+                    <input type="hidden" name="cantidad_${id}" value="1" id="input_cantidad_${id}">
+                </td>
+                <td class="total" data-id="${id}">${producto.precio}</td>
+                <td><button type="button" class="btn btn-sm btn-danger" onclick="eliminarProducto(${id})">Quitar</button></td>
+            `;
+            tbody.appendChild(fila);
+        } else {
+            modificarCantidad(id, 1);
+        }
+        actualizarTotal();
+    }
+
+    function modificarCantidad(id, cambio) {
+        const cantidadElem = document.querySelector(`.cantidad[data-id="${id}"]`);
+        const totalElem = document.querySelector(`.total[data-id="${id}"]`);
+        const input = document.getElementById(`input_cantidad_${id}`);
+        const producto = productos.find(p => p.id === id);
+
+        let cantidad = parseInt(cantidadElem.textContent) + cambio;
+        if (cantidad <= 0 || cantidad > producto.stock) return;
+
+        cantidadElem.textContent = cantidad;
+        input.value = cantidad;
+        totalElem.textContent = (cantidad * producto.precio).toFixed(2);
+        actualizarTotal();
+    }
+
+    function eliminarProducto(id) {
+        document.querySelector(`#tabla-seleccionados tr[data-id="${id}"]`).remove();
+        actualizarTotal();
+    }
+
+    function actualizarTotal() {
+        let total = 0;
+        document.querySelectorAll("#tabla-seleccionados .total").forEach(elem => {
+            total += parseFloat(elem.textContent);
+        });
+        document.getElementById("total").value = total.toFixed(2);
+    }
+
+    document.getElementById("buscador").addEventListener("input", function () {
+        actualizarTablaProductos(this.value);
+    });
+
+    actualizarTablaProductos("");
+</script>
+{% endblock %}

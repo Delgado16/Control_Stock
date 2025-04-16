@@ -1,0 +1,454 @@
+import io
+from flask import Flask, flash, redirect, render_template, request, session, make_response,url_for
+from flask_session import Session
+from werkzeug.security import check_password_hash, generate_password_hash
+from cs50 import SQL
+from flask_login import LoginManager, login_user, login_required, logout_user, UserMixin
+from weasyprint import HTML
+
+# Configure the application
+app = Flask(__name__)
+app.secret_key = "supersecretkey"
+app.config["TEMPLATES_AUTO_RELOAD"] = True
+
+# Session configuration
+app.config["SESSION_PERMANENT"] = False
+app.config["SESSION_TYPE"] = "filesystem"
+Session(app)
+
+# Configure SQLite as the database
+db = SQL("sqlite:///Inventario.db")
+
+# Flask-Login configuration
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+class User(UserMixin):
+    def __init__(self, id, username):
+        self.id = id
+        self.username = username
+
+@app.after_request
+def after_request(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Expires"] = "0"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+@app.route("/", methods=["GET"])
+@login_required
+def index():
+    search = request.args.get("search", "").strip()
+    if search:
+        query = "SELECT * FROM Productos WHERE nombre LIKE ?"
+        items = db.execute(query, f"{search}%")
+    else:
+        items = db.execute("SELECT * FROM Productos")
+    return render_template("index.html", items=items)
+
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    session.clear()
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+
+        if not username or not password:
+            return render_template("login.html")
+
+        user = db.execute("SELECT * FROM users WHERE username = ?", username)
+        if len(user) != 1 or not check_password_hash(user[0]["hash"], password):
+            flash("Usuario o contraseña incorrectos", "error")
+            return render_template("login.html")
+
+        session["id"] = user[0]["username"]
+        user_obj = User(user[0]["id"], user[0]["username"])
+        login_user(user_obj)
+        return redirect("/")
+
+    return render_template("login.html")
+
+@app.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        confirmation = request.form.get("confirmation")
+
+        if not username or not password or not confirmation:
+            flash("Todos los campos son obligatorios", "error")
+            return render_template("register.html")
+
+        if password != confirmation:
+            flash("Las contraseñas no coinciden", "error")
+            return render_template("register.html")
+
+        hash_password = generate_password_hash(password)
+        try:
+            db.execute("INSERT INTO users (username, hash) VALUES (?, ?)", username, hash_password)
+            flash("Registro exitoso. Ahora puede iniciar sesión", "success")
+            return redirect("/login")
+        except:
+            flash("El nombre de usuario ya existe", "error")
+            return render_template("register.html")
+
+    return render_template("register.html")
+
+@login_manager.user_loader
+def load_user(user_id):
+    user = db.execute("SELECT * FROM users WHERE id = ?", user_id)
+    if user:
+        return User(user[0]["id"], user[0]["username"])
+    return None
+
+@app.route("/logout")
+@login_required
+def logout():
+    session.clear()
+    return redirect("/login")
+
+
+@app.route("/test_db")
+def test_db():
+    try:
+        users = db.execute("SELECT * FROM users")
+        return f"Conexión exitosa. Usuarios encontrados: {len(users)}"
+    except Exception as e:
+        return f"Error en la conexión a la base de datos: {e}"
+
+# Clientes
+
+
+@app.route("/clientes", methods=["GET"])
+@login_required
+def clientes():
+    """Mostrar todos los clientes"""
+    clientes = db.execute("SELECT * FROM Clientes")
+    return render_template("clientes.html", clientes=clientes)
+
+
+@app.route("/clientes/agregar", methods=["POST"])
+@login_required
+def agregar_cliente():
+    """Agregar un nuevo cliente"""
+    nombre = request.form.get("nombre")
+    direccion = request.form.get("direccion")
+    telefono = request.form.get("telefono")
+    email = request.form.get("email")
+
+    if not nombre or not telefono or not email:
+        flash("Todos los campos son obligatorios", "error")
+        return redirect("/clientes")
+
+    try:
+        db.execute("INSERT INTO Clientes (nombre, direccion, telefono, email) VALUES (?, ?, ?, ?)",
+                   nombre, direccion, telefono, email)
+        flash("Cliente agregado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al agregar cliente: {e}", "error")
+
+    return redirect("/clientes")
+
+
+@app.route("/clientes/editar/<int:cliente_id>", methods=["POST"])
+@login_required
+def editar_cliente(cliente_id):
+    """Editar un cliente existente"""
+    nombre = request.form.get("nombre")
+    direccion = request.form.get("direccion")
+    telefono = request.form.get("telefono")
+    email = request.form.get("email")
+
+    if not nombre or not telefono or not email:
+        flash("Todos los campos son obligatorios", "error")
+        return redirect("/clientes")
+
+    try:
+        db.execute("UPDATE Clientes SET nombre = ?, direccion = ?, telefono = ?, email = ? WHERE id = ?",
+                   nombre, direccion, telefono, email, cliente_id)
+        flash("Cliente actualizado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al actualizar el cliente: {e}", "error")
+
+    return redirect("/clientes")
+
+
+@app.route("/clientes/eliminar/<int:cliente_id>", methods=["POST"])
+@login_required
+def eliminar_cliente(cliente_id):
+    """Eliminar un cliente"""
+    try:
+        db.execute("DELETE FROM Clientes WHERE id = ?", cliente_id)
+        flash("Cliente eliminado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al eliminar: El cliente ya facturado", "error")
+
+    return redirect("/clientes")
+# FinClientes
+
+
+# productos
+@app.route("/productos", methods=["GET"])
+@login_required
+def productos():
+    """Mostrar la lista de productos"""
+    productos = db.execute("SELECT * FROM Productos")
+    return render_template("productos.html", productos=productos)
+
+
+@app.route("/productos/agregar", methods=["POST"])
+@login_required
+def agregar_producto():
+    """Agregar un nuevo producto"""
+    nombre = request.form.get("nombre")
+    descripcion = request.form.get("descripcion")
+    precio = request.form.get("precio")
+    stock = request.form.get("stock")
+
+    if not nombre or not precio or not stock:
+        flash("Todos los campos obligatorios deben ser completados", "error")
+        return redirect("/productos")
+
+    try:
+        db.execute(
+            "INSERT INTO Productos (nombre, descripcion, precio, stock) VALUES (?, ?, ?, ?)",
+            nombre,
+            descripcion,
+            float(precio),
+            int(stock),
+        )
+        flash("Producto agregado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al agregar el producto: {e}", "error")
+
+    return redirect("/productos")
+
+
+@app.route("/productos/editar/<int:producto_id>", methods=["POST"])
+@login_required
+def editar_producto(producto_id):
+    """Editar un producto existente"""
+    nombre = request.form.get("nombre")
+    descripcion = request.form.get("descripcion")
+    precio = request.form.get("precio")
+    stock = request.form.get("stock")
+
+    if not nombre or not precio or not stock:
+        flash("Todos los campos obligatorios deben ser completados", "error")
+        return redirect("/productos")
+
+    try:
+        db.execute(
+            "UPDATE Productos SET nombre = ?, descripcion = ?, precio = ?, stock = ? WHERE id = ?",
+            nombre,
+            descripcion,
+            float(precio),
+            int(stock),
+            producto_id,
+        )
+        flash("Producto actualizado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al actualizar el producto: {e}", "error")
+
+    return redirect("/productos")
+
+
+@app.route("/productos/eliminar/<int:producto_id>", methods=["POST"])
+@login_required
+def eliminar_producto(producto_id):
+    """Eliminar un producto"""
+    try:
+        db.execute("DELETE FROM Productos WHERE id = ?", producto_id)
+        flash("Producto eliminado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al eliminar: Producto ya facturado", "error")
+
+    return redirect("/productos")
+
+# finProductos
+
+
+# incioVentas
+@app.route("/ventas", methods=["GET", "POST"])
+@login_required
+def ventas():
+    if request.method == "POST":
+        cliente_id = request.form.get("cliente")
+        productos_seleccionados = {
+            key.split("_")[1]: int(value)
+            for key, value in request.form.items() if key.startswith("cantidad_") and int(value) >= 0
+        }
+
+        total = 0
+        for producto_id, cantidad in productos_seleccionados.items():
+            producto = db.execute("SELECT * FROM Productos WHERE id = ?", producto_id)[0]
+            if producto["stock"] < cantidad:
+                flash(f"Stock insuficiente para {producto['nombre']}", "error")
+                return redirect("/ventas")
+            db.execute("UPDATE Productos SET stock = stock - ? WHERE id = ?", cantidad, producto_id)
+            total += producto["precio"] * cantidad
+
+        db.execute("INSERT INTO Ventas (cliente_id, total) VALUES (?, ?)", cliente_id, total)
+        venta_id = db.execute("SELECT last_insert_rowid()")[0]["last_insert_rowid()"]
+
+        for producto_id, cantidad in productos_seleccionados.items():
+            db.execute("INSERT INTO DetalleVenta (venta_id, producto_id, cantidad) VALUES (?, ?, ?)",
+                       venta_id, producto_id, cantidad)
+
+        flash("Venta procesada con éxito", "success")
+        return redirect(f"/ventas?venta_id={venta_id}")
+
+    clientes = db.execute("SELECT * FROM Clientes")
+    productos = db.execute("SELECT * FROM Productos")
+    venta_id = request.args.get("venta_id")
+    return render_template("ventas.html", clientes=clientes, productos=productos, venta_id=venta_id)
+
+# FinVentas
+
+# Factura
+
+
+@app.route("/factura", methods=["GET", "POST"])
+@login_required
+def factura():
+    clientes = db.execute("SELECT * FROM Clientes")
+    cliente_seleccionado = None
+    compras = []
+    total_general = 0
+
+    if request.method == "POST":
+        cliente_id = request.form.get("cliente_id")
+        if not cliente_id:
+            flash("Seleccione un cliente", "error")
+            return redirect("/factura")
+
+        # Obtener cliente seleccionado
+        cliente_seleccionado = db.execute(
+            "SELECT * FROM Clientes WHERE id = ?", cliente_id)
+        if not cliente_seleccionado:
+            flash("Cliente no encontrado", "error")
+            return redirect("/factura")
+        cliente_seleccionado = cliente_seleccionado[0]
+
+        # Obtener la última venta realizada del cliente seleccionado
+        ultima_venta = db.execute("""
+            SELECT id, fecha FROM Ventas
+            WHERE cliente_id = ?
+            ORDER BY fecha DESC
+            LIMIT 1
+        """, cliente_id)
+
+        if not ultima_venta:
+            flash(f"El cliente {
+                  cliente_seleccionado['nombre']} no tiene ventas registradas.", "info")
+        else:
+            # Obtener los detalles de la última venta, incluyendo la fecha
+            id_venta = ultima_venta[0]["id"]
+            compras = db.execute("""
+                SELECT Productos.nombre AS producto,
+                       DetalleVenta.cantidad,
+                       Productos.precio AS precio_unitario,
+                       (DetalleVenta.cantidad * Productos.precio) AS total,
+                       Ventas.fecha  # Añadir la fecha de la venta aquí
+                FROM DetalleVenta
+                JOIN Productos ON DetalleVenta.producto_id = Productos.id
+                JOIN Ventas ON DetalleVenta.venta_id = Ventas.id  # Unir con la tabla de ventas
+                WHERE DetalleVenta.venta_id = ?
+            """, id_venta)
+
+            # Calcular el total general de la última venta
+            total_general = sum(compra["total"] for compra in compras)
+
+    return render_template(
+        "factura.html",
+        clientes=clientes,
+        cliente_seleccionado=cliente_seleccionado,
+        compras=compras,
+        total_general=total_general
+    )
+
+
+@app.route("/factura/pdf", methods=["POST"])
+@login_required
+def factura_pdf():
+    cliente_id = request.form.get("cliente_id")
+    if not cliente_id:
+        flash("Seleccione un cliente", "error")
+        return redirect("/factura")
+
+    # Obtener cliente y sus compras
+    cliente = db.execute("SELECT * FROM Clientes WHERE id = ?", cliente_id)[0]
+    compras = db.execute("""
+        SELECT Ventas.fecha, Productos.nombre AS producto, DetalleVenta.cantidad,
+               Productos.precio AS precio_unitario,
+               (DetalleVenta.cantidad * Productos.precio) AS total
+        FROM Ventas
+        JOIN DetalleVenta ON Ventas.id = DetalleVenta.venta_id
+        JOIN Productos ON DetalleVenta.producto_id = Productos.id
+        WHERE Ventas.cliente_id = ?
+        ORDER BY Ventas.fecha DESC
+    """, cliente_id)
+
+    total_general = sum(compra["total"] for compra in compras)
+
+    # Renderizar la factura en HTML
+    rendered = render_template(
+        "factura_pdf.html", cliente=cliente, compras=compras, total_general=total_general)
+    pdf = HTML(string=rendered).write_pdf()
+
+    # Crear el nombre del archivo PDF, eliminando cualquier carácter no seguro
+    archivo_pdf = f"Factura_{cliente['nombre'].replace(' ', '_')}.pdf"
+
+    # Retornar el archivo PDF para descarga
+    response = make_response(pdf)
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = f"attachment; filename={
+        archivo_pdf}"
+    return response
+
+
+from flask import request, url_for, render_template, make_response
+from weasyprint import HTML
+
+@app.route("/factura/pdf/<int:venta_id>")
+@login_required
+def factura_pdf_unica(venta_id):
+    venta = db.execute("SELECT * FROM Ventas WHERE id = ?", venta_id)[0]
+    cliente = db.execute("SELECT * FROM Clientes WHERE id = ?", venta["cliente_id"])[0]
+    compras = db.execute("""
+        SELECT Productos.nombre AS producto,
+               DetalleVenta.cantidad,
+               Productos.precio AS precio_unitario,
+               (DetalleVenta.cantidad * Productos.precio) AS total,
+               Ventas.fecha
+        FROM DetalleVenta
+        JOIN Productos ON DetalleVenta.producto_id = Productos.id
+        JOIN Ventas ON DetalleVenta.venta_id = Ventas.id
+        WHERE Ventas.id = ?
+    """, venta_id)
+
+    total_general = sum(c["total"] for c in compras)
+
+    # ✅ Ruta relativa es suficiente si pasamos base_url correctamente
+    rendered = render_template(
+        "factura_pdf.html",
+        cliente=cliente,
+        compras=compras,
+        total_general=total_general,
+        logo_url="/static/logo.png"  # ruta relativa
+    )
+
+    pdf = HTML(string=rendered, base_url=request.base_url).write_pdf()
+
+    response = make_response(pdf)
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = f"inline; filename=Factura_{venta_id}.pdf"
+    return response
+
+
+# FinFactura
+
+
+if __name__ == "__main__":
+    app.run(debug=True)

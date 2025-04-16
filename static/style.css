@@ -1,0 +1,128 @@
+/* General Styles */
+body {
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: #f9f9f9;
+    color: #333;
+}
+
+/* Navbar */
+.navbar {
+    background-color: #2ecc71; /* Green */
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.navbar .navbar-brand {
+    color: #000; /* Black */
+    font-weight: bold;
+    font-size: 1.5rem;
+    text-transform: uppercase;
+}
+
+.navbar .nav-link {
+    color: #000; /* Black */
+    font-weight: bold; /* Resaltadas */
+    font-size: 1rem;
+    margin-right: 15px;
+}
+
+.navbar .nav-link:hover {
+    color: #2ecc71; /* Green */
+    text-decoration: underline;
+}
+
+.navbar-toggler {
+    border-color: #fff;
+}
+
+/* Main Content */
+.container {
+    max-width: 600px;
+    margin: 40px auto;
+    background-color: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    color: #2ecc71;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+/* Form */
+.login-form {
+    margin-top: 20px;
+}
+
+.login-form .form-label {
+    font-weight: bold;
+    color: #2ecc71;
+}
+
+.login-form .form-control {
+    border: 2px solid #2ecc71;
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.login-form .form-control:focus {
+    border-color: #27ae60;
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.5);
+}
+
+.login-form button {
+    background-color: #2ecc71;
+    color: #fff;
+    font-weight: bold;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 20px;
+    cursor: pointer;
+    transition: background-color 0.3s ease-in-out;
+}
+
+.login-form button:hover {
+    background-color: #27ae60;
+}
+
+/* Footer */
+footer {
+    margin-top: 20px;
+    padding: 10px;
+    background-color: #2ecc71;
+    color: #fff;
+    text-align: center;
+}
+
+footer form {
+    margin: 0 auto;
+    display: inline-block;
+}
+
+footer img {
+    width: 100px;
+    height: auto;
+    opacity: 0.8;
+}
+
+footer img:hover {
+    opacity: 1;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .navbar .nav-link {
+        font-size: 0.9rem;
+    }
+
+    .container {
+        padding: 15px;
+    }
+
+    footer img {
+        width: 80px;
+    }
+}

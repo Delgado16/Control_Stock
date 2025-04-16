@@ -1,0 +1,62 @@
+{% extends "layout.html" %}
+
+{% block main %}
+<div class="container">
+    <h1 class="mb-4">Generar Factura</h1>
+    <!-- Formulario para seleccionar cliente -->
+    <form method="POST" action="/factura">
+        <div class="mb-3">
+            <label for="cliente" class="form-label">Seleccionar Cliente:</label>
+            <select name="cliente_id" id="cliente" class="form-select" required onchange="this.form.submit()">
+                <option value="" disabled selected>Seleccione un cliente</option>
+                {% for cliente in clientes %}
+                <option value="{{ cliente.id }}" {% if cliente_seleccionado and cliente.id == cliente_seleccionado.id %}selected{% endif %}>
+                    {{ cliente.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+
+    {% if compras %}
+    <h2 class="mt-5">Últimas Compras de {{ cliente_seleccionado.nombre }}</h2>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th>Cantidad</th>
+                <th>Precio Unitario</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for compra in compras %}
+            <tr>
+                <td>{{ compra.fecha }}</td>
+                <td>{{ compra.producto }}</td>
+                <td>{{ compra.cantidad }}</td>
+                <td>${{ "%.2f" | format(compra.precio_unitario) }}</td>
+                <td>${{ "%.2f" | format(compra.total) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h3 class="mt-3">Total General: ${{ "%.2f" | format(total_general) }}</h3>
+
+    <!-- Botón para descargar la factura -->
+    <form method="POST" action="/factura/pdf">
+        <input type="hidden" name="cliente_id" value="{{ cliente_seleccionado.id }}">
+        <button type="submit" class="btn btn-success">Descargar Factura en PDF</button>
+    </form>
+    {% endif %}
+</div>
+
+<script>
+    // Enviar automáticamente el formulario al cambiar el cliente
+    document.getElementById("cliente").addEventListener("change", function () {
+        this.form.submit();
+    });
+</script>
+{% endblock %}
