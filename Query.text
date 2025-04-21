@@ -1,0 +1,49 @@
+--Cliente
+CREATE TABLE Clientes (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+nombre TEXT NOT NULL,
+direccion TEXT,
+telefono TEXT,
+email TEXT
+);
+
+--Detalle de venta
+CREATE TABLE DetalleVenta (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+venta_id INTEGER NOT NULL,
+producto_id INTEGER NOT NULL,
+cantidad INTEGER NOT NULL,
+FOREIGN KEY (venta_id) REFERENCES Ventas(id),
+FOREIGN KEY (producto_id) REFERENCES Productos(id)
+);
+
+--Productos
+CREATE TABLE Productos (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+nombre TEXT NOT NULL,
+descripcion TEXT,
+precio REAL NOT NULL,
+stock INTEGER NOT NULL
+);
+
+--Ventas
+CREATE TABLE Ventas (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+cliente_id INTEGER NOT NULL,
+fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+total REAL NOT NULL,
+FOREIGN KEY (cliente_id) REFERENCES Clientes(id)
+);
+
+--Users
+CREATE TABLE 'users' (
+id INTEGER PRIMARY KEY AUTOINCREMENT,
+username TEXT NOT NULL UNIQUE,
+hash TEXT NOT NULL);
+
+CREATE TABLE NuevaFacturas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    venta_id INTEGER,
+    numero_factura TEXT NOT NULL,
+    fecha_emision TIMESTAMP NOT NULL
+);

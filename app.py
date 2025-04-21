@@ -1,14 +1,16 @@
 import io
-from flask import Flask, flash, redirect, render_template, request, session, make_response,url_for
+from flask import Flask, flash, redirect, render_template, request, session, make_response,url_for,send_file
 from flask_session import Session
 from werkzeug.security import check_password_hash, generate_password_hash
 from cs50 import SQL
 from flask_login import LoginManager, login_user, login_required, logout_user, UserMixin
 from weasyprint import HTML
-
+from datetime import datetime
+import locale
+import re
 # Configure the application
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
+
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
 # Session configuration
@@ -22,52 +24,75 @@ db = SQL("sqlite:///Inventario.db")
 # Flask-Login configuration
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'
+login_manager.login_view = 'login'  # Specify the login view
+
+# User class for Flask-Login
+
 
 class User(UserMixin):
     def __init__(self, id, username):
         self.id = id
         self.username = username
 
+
 @app.after_request
 def after_request(response):
+    """
+    Ensure responses aren't cached
+    """
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Expires"] = "0"
     response.headers["Pragma"] = "no-cache"
     return response
 
+
 @app.route("/", methods=["GET"])
 @login_required
 def index():
+    # Obtener el término de búsqueda del parámetro GET
     search = request.args.get("search", "").strip()
+
+    # Consultar la base de datos
     if search:
+        # Filtrar los productos cuyo nombre comienza con el término ingresado
         query = "SELECT * FROM Productos WHERE nombre LIKE ?"
-        items = db.execute(query, f"{search}%")
+        items = db.execute(query, f"{search}%")  # Comodín solo al final
     else:
+        # Si no hay búsqueda, mostrar todos los productos
         items = db.execute("SELECT * FROM Productos")
+
     return render_template("index.html", items=items)
+
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     session.clear()
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
 
-        if not username or not password:
+        if not request.form.get("username"):
+            return render_template("login.html")
+        elif not request.form.get("password"):
             return render_template("login.html")
 
-        user = db.execute("SELECT * FROM users WHERE username = ?", username)
-        if len(user) != 1 or not check_password_hash(user[0]["hash"], password):
-            flash("Usuario o contraseña incorrectos", "error")
+        user = db.execute("select * from users where username = ?",
+                          request.form.get("username"))
+
+        if len(user) != 1 or not check_password_hash(
+            user[0]["hash"], request.form.get("password")
+        ):
+            flash("error")
             return render_template("login.html")
 
         session["id"] = user[0]["username"]
+
+        # Create user object for Flask-Login
         user_obj = User(user[0]["id"], user[0]["username"])
         login_user(user_obj)
-        return redirect("/")
 
-    return render_template("login.html")
+        return redirect("/")
+    else:
+        return render_template("login.html")
+
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
@@ -85,8 +110,10 @@ def register():
             return render_template("register.html")
 
         hash_password = generate_password_hash(password)
+
         try:
-            db.execute("INSERT INTO users (username, hash) VALUES (?, ?)", username, hash_password)
+            db.execute(
+                "INSERT INTO users (username, hash) VALUES (?, ?)", username, hash_password)
             flash("Registro exitoso. Ahora puede iniciar sesión", "success")
             return redirect("/login")
         except:
@@ -95,6 +122,7 @@ def register():
 
     return render_template("register.html")
 
+
 @login_manager.user_loader
 def load_user(user_id):
     user = db.execute("SELECT * FROM users WHERE id = ?", user_id)
@@ -102,11 +130,15 @@ def load_user(user_id):
         return User(user[0]["id"], user[0]["username"])
     return None
 
+
 @app.route("/logout")
 @login_required
 def logout():
+    # Forget any user_id
     session.clear()
-    return redirect("/login")
+
+    # Redirect user to login form
+    return redirect("/")
 
 
 @app.route("/test_db")
@@ -289,14 +321,33 @@ def ventas():
             db.execute("UPDATE Productos SET stock = stock - ? WHERE id = ?", cantidad, producto_id)
             total += producto["precio"] * cantidad
 
+        # 👉 Registrar la venta
         db.execute("INSERT INTO Ventas (cliente_id, total) VALUES (?, ?)", cliente_id, total)
         venta_id = db.execute("SELECT last_insert_rowid()")[0]["last_insert_rowid()"]
 
+        # 👉 Insertar los detalles
         for producto_id, cantidad in productos_seleccionados.items():
             db.execute("INSERT INTO DetalleVenta (venta_id, producto_id, cantidad) VALUES (?, ?, ?)",
                        venta_id, producto_id, cantidad)
 
-        flash("Venta procesada con éxito", "success")
+        # 👉 Generar número de factura secuencial con formato F0001
+        ultimo = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
+        if ultimo:
+            import re
+            match = re.search(r'\d+', ultimo[0]["numero_factura"])
+            base = int(match.group()) if match else 0
+            numero_factura = f"F{base + 1:04d}"
+        else:
+            numero_factura = "F0001"
+
+        # 👉 Insertar factura con fecha_emision
+        fecha_emision = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        db.execute("""
+            INSERT INTO Facturas (venta_id, numero_factura, fecha_emision)
+            VALUES (?, ?, ?)
+        """, venta_id, numero_factura, fecha_emision)
+
+        flash(f"Venta procesada con éxito. Factura N° {numero_factura}", "success")
         return redirect(f"/ventas?venta_id={venta_id}")
 
     clientes = db.execute("SELECT * FROM Clientes")
@@ -304,10 +355,11 @@ def ventas():
     venta_id = request.args.get("venta_id")
     return render_template("ventas.html", clientes=clientes, productos=productos, venta_id=venta_id)
 
+
+
 # FinVentas
 
 # Factura
-
 
 @app.route("/factura", methods=["GET", "POST"])
 @login_required
@@ -368,6 +420,7 @@ def factura():
         total_general=total_general
     )
 
+ # opcional si querés servir el archivo directamente
 
 @app.route("/factura/pdf", methods=["POST"])
 @login_required
@@ -377,8 +430,10 @@ def factura_pdf():
         flash("Seleccione un cliente", "error")
         return redirect("/factura")
 
-    # Obtener cliente y sus compras
+    # Obtener cliente
     cliente = db.execute("SELECT * FROM Clientes WHERE id = ?", cliente_id)[0]
+
+    # Obtener TODAS las compras del cliente
     compras = db.execute("""
         SELECT Ventas.fecha, Productos.nombre AS producto, DetalleVenta.cantidad,
                Productos.precio AS precio_unitario,
@@ -392,30 +447,54 @@ def factura_pdf():
 
     total_general = sum(compra["total"] for compra in compras)
 
-    # Renderizar la factura en HTML
+    # Obtener el último número de factura y generar el siguiente con formato F0001
+    resultado = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
+    if resultado:
+        import re
+        match = re.search(r'\d+', resultado[0]["numero_factura"])
+        base = int(match.group()) if match else 0
+        nuevo_numero = f"F{base + 1:04d}"
+    else:
+        nuevo_numero = "F0001"
+
+    fecha_emision = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fecha_mostrar = datetime.now().strftime("%d de %B de %Y")
+
+    # Insertar la factura sin venta_id (historial)
+    db.execute(
+        "INSERT INTO Facturas (venta_id, numero_factura, fecha_emision) VALUES (?, ?, ?)",
+        None, nuevo_numero, fecha_emision
+    )
+
+    # Renderizar el PDF
     rendered = render_template(
-        "factura_pdf.html", cliente=cliente, compras=compras, total_general=total_general)
+        "factura_pdf.html",
+        cliente=cliente,
+        productos=compras,
+        total_general=total_general,
+        numero_factura=nuevo_numero,
+        fecha_emision=fecha_mostrar,
+        as_url=url_for('static', filename='as.png', _external=True)
+    )
+
     pdf = HTML(string=rendered).write_pdf()
 
-    # Crear el nombre del archivo PDF, eliminando cualquier carácter no seguro
-    archivo_pdf = f"Factura_{cliente['nombre'].replace(' ', '_')}.pdf"
-
-    # Retornar el archivo PDF para descarga
+    archivo_pdf = f"Historial_{cliente['nombre'].replace(' ', '_')}_{nuevo_numero}.pdf"
     response = make_response(pdf)
     response.headers["Content-Type"] = "application/pdf"
-    response.headers["Content-Disposition"] = f"attachment; filename={
-        archivo_pdf}"
+    response.headers["Content-Disposition"] = f"attachment; filename={archivo_pdf}"
     return response
 
 
-from flask import request, url_for, render_template, make_response
-from weasyprint import HTML
 
 @app.route("/factura/pdf/<int:venta_id>")
 @login_required
 def factura_pdf_unica(venta_id):
+    # Obtener venta y cliente
     venta = db.execute("SELECT * FROM Ventas WHERE id = ?", venta_id)[0]
     cliente = db.execute("SELECT * FROM Clientes WHERE id = ?", venta["cliente_id"])[0]
+
+    # Detalles de productos de la venta
     compras = db.execute("""
         SELECT Productos.nombre AS producto,
                DetalleVenta.cantidad,
@@ -430,13 +509,39 @@ def factura_pdf_unica(venta_id):
 
     total_general = sum(c["total"] for c in compras)
 
-    # ✅ Ruta relativa es suficiente si pasamos base_url correctamente
+    # Buscar si ya existe una factura para esa venta
+    resultado = db.execute("SELECT numero_factura, fecha_emision FROM Facturas WHERE venta_id = ?", venta_id)
+    if resultado:
+        numero_factura = resultado[0]["numero_factura"]
+        fecha_mostrar = datetime.strptime(resultado[0]["fecha_emision"], "%Y-%m-%d %H:%M:%S").strftime("%d de %B de %Y")
+    else:
+        # Generar nuevo número
+        ultimo = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
+        if ultimo:
+            import re
+            match = re.search(r'\d+', ultimo[0]["numero_factura"])
+            base = int(match.group()) if match else 0
+            numero_factura = f"F{base + 1:04d}"
+        else:
+            numero_factura = "F0001"
+
+        fecha_emision = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        fecha_mostrar = datetime.now().strftime("%d de %B de %Y")
+
+        # Insertar nueva factura asociada a la venta
+        db.execute(
+            "INSERT INTO Facturas (venta_id, numero_factura, fecha_emision) VALUES (?, ?, ?)",
+            venta_id, numero_factura, fecha_emision
+        )
+
     rendered = render_template(
         "factura_pdf.html",
         cliente=cliente,
-        compras=compras,
+        productos=compras,
         total_general=total_general,
-        logo_url="/static/logo.png"  # ruta relativa
+        numero_factura=numero_factura,
+        fecha_emision=fecha_mostrar,
+        as_url=url_for('static', filename='as.png', _external=True)
     )
 
     pdf = HTML(string=rendered, base_url=request.base_url).write_pdf()
@@ -446,6 +551,74 @@ def factura_pdf_unica(venta_id):
     response.headers["Content-Disposition"] = f"inline; filename=Factura_{venta_id}.pdf"
     return response
 
+
+
+
+@app.route("/factura/historial/pdf", methods=["POST"])
+@login_required
+def factura_historial_pdf():
+    cliente_id = request.form.get("cliente_id")
+    if not cliente_id:
+        flash("Seleccione un cliente", "error")
+        return redirect("/factura")
+
+    # Obtener los datos del cliente
+    cliente = db.execute("SELECT * FROM Clientes WHERE id = ?", cliente_id)[0]
+
+    # Obtener todas las compras realizadas por el cliente
+    compras = db.execute("""
+        SELECT Ventas.fecha, Productos.nombre AS producto, DetalleVenta.cantidad,
+               Productos.precio AS precio_unitario,
+               (DetalleVenta.cantidad * Productos.precio) AS total
+        FROM Ventas
+        JOIN DetalleVenta ON Ventas.id = DetalleVenta.venta_id
+        JOIN Productos ON DetalleVenta.producto_id = Productos.id
+        WHERE Ventas.cliente_id = ?
+        ORDER BY Ventas.fecha DESC
+    """, cliente_id)
+
+    # Calcular el total general
+    total_general = sum(compra["total"] for compra in compras)
+
+    # Obtener el último número de factura y generar el siguiente con formato F0001, F0002, etc.
+    ultimo = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
+
+    if ultimo:
+        match = re.search(r'\d+', ultimo[0]["numero_factura"])
+        numero_base = int(match.group()) if match else 0
+        numero_factura = f"F{numero_base + 1:04d}"
+    else:
+        numero_factura = "F0001"
+
+    # Fecha de emisión para la base de datos y para el PDF
+    fecha_emision_sql = datetime.now().strftime("%Y-%m-%d %H:%M:%S")      # para guardar en DB (TIMESTAMP)
+    fecha_emision_display = datetime.now().strftime("%d de %B de %Y")     # para mostrar en el PDF
+
+    # Insertar nueva factura en la base de datos (sin venta_id porque es un historial general)
+    db.execute("""
+        INSERT INTO Facturas (venta_id, numero_factura, fecha_emision)
+        VALUES (?, ?, ?)
+    """, None, numero_factura, fecha_emision_sql)
+
+    # Renderizar el HTML como PDF
+    rendered = render_template(
+        "factura_pdf.html",
+        cliente=cliente,
+        productos=compras,
+        total_general=total_general,
+        numero_factura=numero_factura,
+        fecha_emision=fecha_emision_display,
+        as_url=url_for('static', filename='as.png', _external=True)
+    )
+
+    pdf = HTML(string=rendered).write_pdf()
+
+    # Devolver el PDF como archivo descargable
+    archivo_pdf = f"Historial_{cliente['nombre'].replace(' ', '_')}_{numero_factura}.pdf"
+    response = make_response(pdf)
+    response.headers["Content-Type"] = "application/pdf"
+    response.headers["Content-Disposition"] = f"attachment; filename={archivo_pdf}"
+    return response
 
 # FinFactura
 

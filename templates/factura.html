@@ -3,6 +3,7 @@
 {% block main %}
 <div class="container">
     <h1 class="mb-4">Generar Factura</h1>
+
     <!-- Formulario para seleccionar cliente -->
     <form method="POST" action="/factura">
         <div class="mb-3">
@@ -45,10 +46,10 @@
 
     <h3 class="mt-3">Total General: ${{ "%.2f" | format(total_general) }}</h3>
 
-    <!-- Botón para descargar la factura -->
-    <form method="POST" action="/factura/pdf">
+    <!-- Botón para descargar el historial en PDF -->
+    <form method="POST" action="/factura/historial/pdf">
         <input type="hidden" name="cliente_id" value="{{ cliente_seleccionado.id }}">
-        <button type="submit" class="btn btn-success">Descargar Factura en PDF</button>
+        <button type="submit" class="btn btn-success">Descargar Historial en PDF</button>
     </form>
     {% endif %}
 </div>

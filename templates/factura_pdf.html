@@ -22,8 +22,14 @@
         }
 
         .logo {
-            width: 100px;
+            width: 80px;
             height: auto;
+        }
+
+        .fecha-emision {
+            text-align: right;
+            font-size: 14px;
+            margin-top: 10px;
         }
 
         .datos-cliente {
@@ -73,12 +79,17 @@
     <div class="encabezado">
         <div class="empresa">
             CONTROLSTOCK<br>
-            <span style="font-size: 14px; font-weight: normal;">Factura de venta</span>
+            <span style="font-size: 14px; font-weight: normal;">Factura de venta</span><br>
+            <p style="font-size: 14px;">N° Factura: {{ numero_factura }}</p>
         </div>
         <div>
-            <!-- Si tenés un logo -->
             <img src="{{ as_url }}" alt="Logo" class="logo">
         </div>
+    </div>
+
+    <!-- Fecha de emisión -->
+    <div class="fecha-emision">
+        <strong>Fecha de emisión:</strong> {{ fecha_emision }}
     </div>
 
     <!-- Datos del cliente -->
@@ -90,7 +101,7 @@
         <p><strong>Email:</strong> {{ cliente.email }}</p>
     </div>
 
-    <!-- Tabla de productos -->
+    <!-- Tabla de productos vendidos -->
     <table>
         <thead>
             <tr>
@@ -102,13 +113,13 @@
             </tr>
         </thead>
         <tbody>
-            {% for compra in compras %}
+            {% for item in productos %}
             <tr>
-                <td>{{ compra.fecha }}</td>
-                <td>{{ compra.producto }}</td>
-                <td>{{ compra.cantidad }}</td>
-                <td>${{ "%.2f"|format(compra.precio_unitario) }}</td>
-                <td>${{ "%.2f"|format(compra.total) }}</td>
+                <td>{{ item.fecha }}</td>
+                <td>{{ item.producto }}</td>
+                <td>{{ item.cantidad }}</td>
+                <td>${{ "%.2f"|format(item.precio_unitario) }}</td>
+                <td>${{ "%.2f"|format(item.total) }}</td>
             </tr>
             {% endfor %}
         </tbody>
