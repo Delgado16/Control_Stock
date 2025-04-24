@@ -432,6 +432,64 @@ def ventas():
 
 # FinVentas
 
+# InicioCompras
+
+@app.route("/compras", methods=["GET", "POST"])
+@login_required
+def compras():
+    if request.method == "POST":
+        proveedor_id = request.form.get("proveedor")
+        productos_seleccionados = {
+            key.split("_")[1]: int(value)
+            for key, value in request.form.items() if key.startswith("cantidad_") and int(value) >= 0
+        }
+
+        total = 0
+        for producto_id, cantidad in productos_seleccionados.items():
+            producto = db.execute("SELECT * FROM Productos WHERE id = ?", producto_id)[0]
+            if producto["stock"] < cantidad:
+                flash(f"Stock insuficiente para {producto['nombre']}", "error")
+                return redirect("/ventas")
+            db.execute("UPDATE Productos SET stock = stock - ? WHERE id = ?", cantidad, producto_id)
+            total += producto["precio"] * cantidad
+
+
+        db.execute("INSERT INTO Ventas (cliente_id, total) VALUES (?, ?)", cliente_id, total)
+        venta_id = db.execute("SELECT last_insert_rowid()")[0]["last_insert_rowid()"]
+
+
+        for producto_id, cantidad in productos_seleccionados.items():
+            db.execute("INSERT INTO DetalleVenta (venta_id, producto_id, cantidad) VALUES (?, ?, ?)",
+                       venta_id, producto_id, cantidad)
+
+        ultimo = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
+        if ultimo:
+            import re
+            match = re.search(r'\d+', ultimo[0]["numero_factura"])
+            base = int(match.group()) if match else 0
+            numero_factura = f"F{base + 1:04d}"
+        else:
+            numero_factura = "F0001"
+
+
+        fecha_emision = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        db.execute("""
+            INSERT INTO Facturas (venta_id, numero_factura, fecha_emision)
+            VALUES (?, ?, ?)
+        """, venta_id, numero_factura, fecha_emision)
+
+        flash(f"Venta procesada con éxito. Factura N° {numero_factura}", "success")
+        return redirect(f"/ventas?venta_id={venta_id}")
+
+    clientes = db.execute("SELECT * FROM Clientes")
+    productos = db.execute("SELECT * FROM Productos")
+    venta_id = request.args.get("venta_id")
+    return render_template("ventas.html", clientes=clientes, productos=productos, venta_id=venta_id)
+
+# FinCompras
+
+
+
 # Factura
 
 @app.route("/factura", methods=["GET", "POST"])
