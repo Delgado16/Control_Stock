@@ -1,0 +1,167 @@
+{% extends "layout.html" %}
+
+{% block title %}Proveedores{% endblock %}
+
+{% block main %}
+<div class="container py-5">
+    <h1 class="text-center text-info mb-4">📇 Gestión de Proveedores</h1>
+
+    {% if get_flashed_messages() %}
+    <div class="alert alert-primary text-center" role="alert">
+        {{ get_flashed_messages() | join(" ") }}
+    </div>
+    {% endif %}
+
+    <!-- Buscador -->
+    <div class="input-group mb-4">
+        <input type="text" id="busquedaProveedores" class="form-control" placeholder="🔍 Buscar proveedores por nombre o email...">
+    </div>
+
+    <!-- Botón Agregar Proveedores -->
+    <div class="mb-3 text-end">
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#agregarModal">
+            ➕ Agregar Proveedor
+        </button>
+    </div>
+
+    <!-- Tabla de Proveedores -->
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle text-center" id="tablaProveedores">
+            <thead class="table-light">
+                <tr>
+                    <th>Nombre</th>
+                    <th>Dirección</th>
+                    <th>Ruc</th>
+                    <th>Teléfono</th>
+                    <th>Email</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Ojo con Proveedor -->
+                {% for proveedor in proveedores %}
+                <tr>
+                    <td class="nombre">{{ proveedor.nombre }}</td>
+                    <td>{{ proveedor.direccion }}</td>
+                    <td>{{ proveedor.ruc }}</td>
+                    <td>{{ proveedor.telefono }}</td>
+                    <td class="email">{{ proveedor.email }}</td>
+                    <td>
+                        <!-- Editar -->
+                        <button class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal" data-bs-target="#editarModal{{ proveedor.id }}">
+                            ✏️
+                        </button>
+
+                        <!-- Eliminar -->
+                        <form action="/proveedores/eliminar/{{ proveedor.id }}" method="POST" class="d-inline">
+                            <button type="submit" class="btn btn-sm btn-outline-danger">🗑️</button>
+                        </form>
+                    </td>
+                </tr>
+
+                <!-- Modal Editar Proveedor -->
+                <div class="modal fade" id="editarModal{{ proveedor.id }}" tabindex="-1" aria-labelledby="editarModalLabel{{ proveedor.id }}" aria-hidden="true">
+                    <div class="modal-dialog">
+                        <div class="modal-content shadow">
+                            <div class="modal-header">
+                                <h5 class="modal-title" id="editarModalLabel{{ proveedor.id }}">Editar Proveedor</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                            </div>
+                            <form action="/proveedores/editar/{{ proveedor.id }}" method="POST">
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label">Nombre</label>
+                                        <input type="text" name="nombre" class="form-control" value="{{ proveedor.nombre }}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Dirección</label>
+                                        <input type="text" name="direccion" class="form-control" value="{{ proveedor.direccion }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Ruc</label>
+                                        <input type="text" name="ruc" class="form-control" value="{{ proveedor.ruc }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Teléfono</label>
+                                        <input type="text" name="telefono" class="form-control" value="{{ proveedor.telefono }}">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Email</label>
+                                        <input type="email" name="email" class="form-control" value="{{ proveedor.email }}">
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+
+ <!-- Modal Agregar Proveedor -->
+ <div class="modal fade" id="agregarModal" tabindex="-1" aria-labelledby="agregarModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content shadow">
+            <div class="modal-header">
+                <h5 class="modal-title" id="agregarModalLabel">Agregar Proveedor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form action="/proveedores/agregar" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" name="nombre" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Dirección</label>
+                        <input type="text" name="direccion" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ruc</label>
+                        <input type="text" name="ruc" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Teléfono</label>
+                        <input type="text" name="telefono" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" name="email" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">Agregar Proveedor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</div>
+
+<!-- JS para búsqueda en tiempo real -->
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const input = document.getElementById("busquedaProveedores");
+        const filas = document.querySelectorAll("#tablaProveedores tbody tr");
+
+        input.addEventListener("input", function () {
+            const valor = this.value.toLowerCase();
+
+            filas.forEach(fila => {
+                const nombre = fila.querySelector(".nombre")?.textContent.toLowerCase() || "";
+                const email = fila.querySelector(".email")?.textContent.toLowerCase() || "";
+
+                fila.style.display = (nombre.includes(valor) || email.includes(valor)) ? "" : "none";
+            });
+        });
+    });
+</script>
+
+{% endblock %}

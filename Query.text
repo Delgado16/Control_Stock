@@ -47,3 +47,13 @@ CREATE TABLE NuevaFacturas (
     numero_factura TEXT NOT NULL,
     fecha_emision TIMESTAMP NOT NULL
 );
+
+--Proveedores
+CREATE TABLE Proveedores (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    direccion TEXT,
+    ruc TEXT,
+    telefono TEXT,
+    email TEXT
+);

@@ -49,16 +49,16 @@ def after_request(response):
 @app.route("/", methods=["GET"])
 @login_required
 def index():
-    # Obtener el término de búsqueda del parámetro GET
+
     search = request.args.get("search", "").strip()
 
     # Consultar la base de datos
     if search:
-        # Filtrar los productos cuyo nombre comienza con el término ingresado
+
         query = "SELECT * FROM Productos WHERE nombre LIKE ?"
         items = db.execute(query, f"{search}%")  # Comodín solo al final
     else:
-        # Si no hay búsqueda, mostrar todos los productos
+
         items = db.execute("SELECT * FROM Productos")
 
     return render_template("index.html", items=items)
@@ -134,10 +134,10 @@ def load_user(user_id):
 @app.route("/logout")
 @login_required
 def logout():
-    # Forget any user_id
+
     session.clear()
 
-    # Redirect user to login form
+
     return redirect("/")
 
 
@@ -218,6 +218,80 @@ def eliminar_cliente(cliente_id):
 
     return redirect("/clientes")
 # FinClientes
+
+# Proveedores
+@app.route("/proveedores", methods=["GET"])
+@login_required
+def proveedores():
+    """Mostrar todos los Proveedores"""
+    proveedores = db.execute("SELECT * FROM Proveedores")
+    return render_template("proveedores.html", proveedores=proveedores)
+
+
+@app.route("/proveedores/agregar", methods=["POST"])
+@login_required
+def agregar_proveedor():
+    """Agregar un nuevo proveedor"""
+    nombre = request.form.get("nombre")
+    direccion = request.form.get("direccion")
+    ruc = request.form.get("ruc")
+    telefono = request.form.get("telefono")
+    email = request.form.get("email")
+
+    if not nombre or not telefono or not email:
+        flash("Todos los campos son obligatorios", "error")
+        return redirect("/proveedores")
+
+    try:
+        db.execute("INSERT INTO Proveedores (nombre, direccion, ruc, telefono, email) VALUES (?, ?, ?, ?, ?)",
+                   nombre, direccion, ruc, telefono, email)
+        flash("Proveedor agregado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al agregar proveedor: {e}", "error")
+
+    return redirect("/proveedores")
+
+
+@app.route("/proveedores/editar/<int:proveedor_id>", methods=["POST"])
+@login_required
+def editar_proveedor(proveedor_id):
+    """Editar un proveedor existente"""
+    nombre = request.form.get("nombre")
+    direccion = request.form.get("direccion")
+    ruc = request.form.get("ruc")
+    telefono = request.form.get("telefono")
+    email = request.form.get("email")
+
+    if not nombre or not telefono or not email:
+        flash("Todos los campos son obligatorios", "error")
+        return redirect("/proveedores")
+
+    try:
+        db.execute("UPDATE Proveedores SET nombre = ?, direccion = ?, ruc = ?, telefono = ?, email = ? WHERE id = ?",
+                   nombre, direccion, ruc, telefono, email, proveedor_id)
+        flash("Proveedor actualizado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al actualizar el proveedor: {e}", "error")
+
+    return redirect("/proveedores")
+
+
+@app.route("/proveedores/eliminar/<int:proveedor_id>", methods=["POST"])
+@login_required
+def eliminar_proveedor(proveedor_id):
+    """Eliminar un proveedor"""
+    try:
+        db.execute("DELETE FROM Proveedores WHERE id = ?", proveedor_id)
+        flash("Proveedor eliminado exitosamente", "success")
+    except Exception as e:
+        flash(f"Error al eliminar: El Proveedor ya facturado", "error")
+
+    return redirect("/proveedores")
+
+
+# FinProveedores
+
+
 
 
 # productos
@@ -321,16 +395,15 @@ def ventas():
             db.execute("UPDATE Productos SET stock = stock - ? WHERE id = ?", cantidad, producto_id)
             total += producto["precio"] * cantidad
 
-        # 👉 Registrar la venta
+
         db.execute("INSERT INTO Ventas (cliente_id, total) VALUES (?, ?)", cliente_id, total)
         venta_id = db.execute("SELECT last_insert_rowid()")[0]["last_insert_rowid()"]
 
-        # 👉 Insertar los detalles
+
         for producto_id, cantidad in productos_seleccionados.items():
             db.execute("INSERT INTO DetalleVenta (venta_id, producto_id, cantidad) VALUES (?, ?, ?)",
                        venta_id, producto_id, cantidad)
 
-        # 👉 Generar número de factura secuencial con formato F0001
         ultimo = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
         if ultimo:
             import re
@@ -340,7 +413,7 @@ def ventas():
         else:
             numero_factura = "F0001"
 
-        # 👉 Insertar factura con fecha_emision
+
         fecha_emision = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         db.execute("""
             INSERT INTO Facturas (venta_id, numero_factura, fecha_emision)
@@ -375,7 +448,7 @@ def factura():
             flash("Seleccione un cliente", "error")
             return redirect("/factura")
 
-        # Obtener cliente seleccionado
+
         cliente_seleccionado = db.execute(
             "SELECT * FROM Clientes WHERE id = ?", cliente_id)
         if not cliente_seleccionado:
@@ -383,7 +456,6 @@ def factura():
             return redirect("/factura")
         cliente_seleccionado = cliente_seleccionado[0]
 
-        # Obtener la última venta realizada del cliente seleccionado
         ultima_venta = db.execute("""
             SELECT id, fecha FROM Ventas
             WHERE cliente_id = ?
@@ -395,7 +467,6 @@ def factura():
             flash(f"El cliente {
                   cliente_seleccionado['nombre']} no tiene ventas registradas.", "info")
         else:
-            # Obtener los detalles de la última venta, incluyendo la fecha
             id_venta = ultima_venta[0]["id"]
             compras = db.execute("""
                 SELECT Productos.nombre AS producto,
@@ -409,7 +480,6 @@ def factura():
                 WHERE DetalleVenta.venta_id = ?
             """, id_venta)
 
-            # Calcular el total general de la última venta
             total_general = sum(compra["total"] for compra in compras)
 
     return render_template(
@@ -420,8 +490,6 @@ def factura():
         total_general=total_general
     )
 
- # opcional si querés servir el archivo directamente
-
 @app.route("/factura/pdf", methods=["POST"])
 @login_required
 def factura_pdf():
@@ -430,10 +498,9 @@ def factura_pdf():
         flash("Seleccione un cliente", "error")
         return redirect("/factura")
 
-    # Obtener cliente
+
     cliente = db.execute("SELECT * FROM Clientes WHERE id = ?", cliente_id)[0]
 
-    # Obtener TODAS las compras del cliente
     compras = db.execute("""
         SELECT Ventas.fecha, Productos.nombre AS producto, DetalleVenta.cantidad,
                Productos.precio AS precio_unitario,
@@ -447,7 +514,7 @@ def factura_pdf():
 
     total_general = sum(compra["total"] for compra in compras)
 
-    # Obtener el último número de factura y generar el siguiente con formato F0001
+
     resultado = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
     if resultado:
         import re
@@ -460,13 +527,12 @@ def factura_pdf():
     fecha_emision = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     fecha_mostrar = datetime.now().strftime("%d de %B de %Y")
 
-    # Insertar la factura sin venta_id (historial)
+
     db.execute(
         "INSERT INTO Facturas (venta_id, numero_factura, fecha_emision) VALUES (?, ?, ?)",
         None, nuevo_numero, fecha_emision
     )
 
-    # Renderizar el PDF
     rendered = render_template(
         "factura_pdf.html",
         cliente=cliente,
@@ -494,7 +560,6 @@ def factura_pdf_unica(venta_id):
     venta = db.execute("SELECT * FROM Ventas WHERE id = ?", venta_id)[0]
     cliente = db.execute("SELECT * FROM Clientes WHERE id = ?", venta["cliente_id"])[0]
 
-    # Detalles de productos de la venta
     compras = db.execute("""
         SELECT Productos.nombre AS producto,
                DetalleVenta.cantidad,
@@ -509,13 +574,12 @@ def factura_pdf_unica(venta_id):
 
     total_general = sum(c["total"] for c in compras)
 
-    # Buscar si ya existe una factura para esa venta
     resultado = db.execute("SELECT numero_factura, fecha_emision FROM Facturas WHERE venta_id = ?", venta_id)
     if resultado:
         numero_factura = resultado[0]["numero_factura"]
         fecha_mostrar = datetime.strptime(resultado[0]["fecha_emision"], "%Y-%m-%d %H:%M:%S").strftime("%d de %B de %Y")
     else:
-        # Generar nuevo número
+
         ultimo = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
         if ultimo:
             import re
@@ -528,7 +592,7 @@ def factura_pdf_unica(venta_id):
         fecha_emision = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         fecha_mostrar = datetime.now().strftime("%d de %B de %Y")
 
-        # Insertar nueva factura asociada a la venta
+
         db.execute(
             "INSERT INTO Facturas (venta_id, numero_factura, fecha_emision) VALUES (?, ?, ?)",
             venta_id, numero_factura, fecha_emision
@@ -562,10 +626,10 @@ def factura_historial_pdf():
         flash("Seleccione un cliente", "error")
         return redirect("/factura")
 
-    # Obtener los datos del cliente
+
     cliente = db.execute("SELECT * FROM Clientes WHERE id = ?", cliente_id)[0]
 
-    # Obtener todas las compras realizadas por el cliente
+
     compras = db.execute("""
         SELECT Ventas.fecha, Productos.nombre AS producto, DetalleVenta.cantidad,
                Productos.precio AS precio_unitario,
@@ -577,10 +641,10 @@ def factura_historial_pdf():
         ORDER BY Ventas.fecha DESC
     """, cliente_id)
 
-    # Calcular el total general
+
     total_general = sum(compra["total"] for compra in compras)
 
-    # Obtener el último número de factura y generar el siguiente con formato F0001, F0002, etc.
+
     ultimo = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
 
     if ultimo:
@@ -590,17 +654,16 @@ def factura_historial_pdf():
     else:
         numero_factura = "F0001"
 
-    # Fecha de emisión para la base de datos y para el PDF
-    fecha_emision_sql = datetime.now().strftime("%Y-%m-%d %H:%M:%S")      # para guardar en DB (TIMESTAMP)
-    fecha_emision_display = datetime.now().strftime("%d de %B de %Y")     # para mostrar en el PDF
 
-    # Insertar nueva factura en la base de datos (sin venta_id porque es un historial general)
+    fecha_emision_sql = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    fecha_emision_display = datetime.now().strftime("%d de %B de %Y")
+
+
     db.execute("""
         INSERT INTO Facturas (venta_id, numero_factura, fecha_emision)
         VALUES (?, ?, ?)
     """, None, numero_factura, fecha_emision_sql)
 
-    # Renderizar el HTML como PDF
     rendered = render_template(
         "factura_pdf.html",
         cliente=cliente,
@@ -613,7 +676,7 @@ def factura_historial_pdf():
 
     pdf = HTML(string=rendered).write_pdf()
 
-    # Devolver el PDF como archivo descargable
+
     archivo_pdf = f"Historial_{cliente['nombre'].replace(' ', '_')}_{numero_factura}.pdf"
     response = make_response(pdf)
     response.headers["Content-Type"] = "application/pdf"
