@@ -447,11 +447,11 @@ def compras():
         total = 0
         for producto_id, cantidad in productos_seleccionados.items():
             producto = db.execute("SELECT * FROM Productos WHERE id = ?", producto_id)[0]
-            if producto["stock"] < cantidad:
+            if producto["cantidad"] < cantidad:
                 flash(f"Stock insuficiente para {producto['nombre']}", "error")
                 return redirect("/ventas")
             db.execute("UPDATE Productos SET stock = stock - ? WHERE id = ?", cantidad, producto_id)
-            total += producto["precio"] * cantidad
+            total += producto["cos"] * cantidad
 
 
         db.execute("INSERT INTO Compras (proveedor_id, total) VALUES (?, ?)", proveedor_id, total)
