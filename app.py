@@ -454,8 +454,8 @@ def compras():
             total += producto["precio"] * cantidad
 
 
-        db.execute("INSERT INTO Ventas (cliente_id, total) VALUES (?, ?)", cliente_id, total)
-        venta_id = db.execute("SELECT last_insert_rowid()")[0]["last_insert_rowid()"]
+        db.execute("INSERT INTO Compras (proveedor_id, total) VALUES (?, ?)", proveedor_id, total)
+        compra_id = db.execute("SELECT last_insert_rowid()")[0]["last_insert_rowid()"]
 
 
         for producto_id, cantidad in productos_seleccionados.items():
