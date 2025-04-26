@@ -481,10 +481,10 @@ def compras():
         flash(f"Venta procesada con éxito. Factura N° {numero_factura}", "success")
         return redirect(f"/ventas?venta_id={venta_id}")
 
-    clientes = db.execute("SELECT * FROM Clientes")
+    proveedores = db.execute("SELECT * FROM Proveedores")
     productos = db.execute("SELECT * FROM Productos")
-    venta_id = request.args.get("venta_id")
-    return render_template("ventas.html", clientes=clientes, productos=productos, venta_id=venta_id)
+    compra_id = request.args.get("compra_id")
+    return render_template("compras.html", proveedores=proveedores, productos=productos, compra_id=compra_id)
 
 # FinCompras
 
