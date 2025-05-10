@@ -11,7 +11,7 @@
             <input class="form-control" list="proveedoresList" id="proveedor_input" placeholder="Escriba el nombre del proveedor..." autocomplete="off" required>
             <input type="hidden" name="proveedor" id="proveedor_id">
             <datalist id="proveedoresList">
-                {% for proveedor in provedores %}
+                {% for proveedor in proveedores %}
                 <option data-id="{{ proveedor.id }}" value="{{ proveedor.nombre }}"></option>
                 {% endfor %}
             </datalist>
@@ -23,6 +23,12 @@
             <input type="text" id="buscador" class="form-control" placeholder="Escriba el nombre del producto">
         </div>
 
+        <!-- Numero de Factura -->
+        <div class="mb-4">
+            <label class="form-label">Numero Factura:</label>
+            <input type="text" id="numfactura" name="numfactura"><br><br>
+        </div>
+
         <!-- Tabla de productos encontrados -->
         <div class="mb-4">
             <label class="form-label">Resultados de la búsqueda:</label>
@@ -31,8 +37,8 @@
                     <tr>
                         <th>Nombre</th>
                         <th>Descripción</th>
-                        <th>Precio</th>
-                        <th>Stock Disponible</th>
+                        <th>cantidad</th>
+                        <th>Costo</th>
                         <th>Acción</th>
                     </tr>
                 </thead>
@@ -47,8 +53,8 @@
                 <thead>
                     <tr>
                         <th>Nombre</th>
-                        <th>Precio</th>
                         <th>Cantidad</th>
+                        <th>Precio</th>
                         <th>Total</th>
                         <th>Acción</th>
                     </tr>
@@ -64,7 +70,7 @@
         </div>
 
         <!-- Botón de envío -->
-        <button type="submit" class="btn btn-primary">Procesar Venta</button>
+        <button type="submit" class="btn btn-primary">Procesar Compra</button>
     </form>
 
     <!-- Botón Imprimir Factura -->
@@ -89,9 +95,9 @@
 
     function validarFormulario() {
         const proveedorId = document.getElementById("proveedor_id").value;
-        const productosSeleccionados = document.querySelector("#tabla-seleccionados tbody").children.length;
+        const proveedoresSeleccionados = document.querySelector("#tabla-seleccionados tbody").children.length;
         if (!proveedorId) {
-            alert("Debe seleccionar un cliente válido.");
+            alert("Debe seleccionar un proveedor válido.");
             return false;
         }
         if (productosSeleccionados === 0) {
@@ -113,15 +119,17 @@
                 fila.innerHTML = `
                     <td>${producto.nombre}</td>
                     <td>${producto.descripcion}</td>
-                    <td>${producto.precio}</td>
-                    <td>${producto.stock}</td>
-                    <td><button type="button" class="btn btn-sm btn-success" onclick="agregarProducto(${producto.id})">Agregar</button></td>
+                    <td contenteditable="true" type="number" id="cantidadcompra"></td>
+                    <td contenteditable="true" type="number" id="costo"></td>
+                    <td><button type="button" class="btn btn-sm btn-success" onclick="agregarProductocompra(${producto.id})">Agregar</button></td>
                 `;
+
+
                 tbody.appendChild(fila);
             });
     }
 
-    function agregarProducto(id) {
+    function agregarProductocompra(id) {
         const producto = productos.find(p => p.id === id);
         const tbody = document.querySelector("#tabla-seleccionados tbody");
         let fila = tbody.querySelector(`tr[data-id="${id}"]`);
@@ -131,14 +139,13 @@
             fila.setAttribute("data-id", id);
             fila.innerHTML = `
                 <td>${producto.nombre}</td>
-                <td>${producto.precio}</td>
                 <td>
                     <div class="d-flex align-items-center justify-content-center">
                         <button type="button" class="btn btn-sm btn-secondary" onclick="modificarCantidad(${id}, -1)">-</button>
-                        <span class="mx-2 cantidad" data-id="${id}">1</span>
+                        <span class="mx-2 cantidadcompra" data-id="${id}">1</span>
                         <button type="button" class="btn btn-sm btn-secondary" onclick="modificarCantidad(${id}, 1)">+</button>
                     </div>
-                    <input type="hidden" name="cantidad_${id}" value="1" id="input_cantidad_${id}">
+                    <input type="hidden" name="cantidadcompra_${id}" value="1" id="input_cantidadcompra_${id}">
                 </td>
                 <td class="total" data-id="${id}">${producto.precio}</td>
                 <td><button type="button" class="btn btn-sm btn-danger" onclick="eliminarProducto(${id})">Quitar</button></td>
@@ -165,6 +172,26 @@
         totalElem.textContent = (cantidad * producto.precio).toFixed(2);
         actualizarTotal();
     }
+
+    function modificarCosto(id, cambio) {
+        const costodElem = document.querySelector(`.costo_unitario[data-id="${id}"]`);
+        const cantidadElem = document.querySelector(`.cantidad[data-id="${id}"]`);
+        const totalElem = document.querySelector(`.total[data-id="${id}"]`);
+        const input = document.getElementById(`input_cantidad_${id}`);
+        const producto = productos.find(p => p.id === id);
+
+        let cantidad = parseInt(cantidadElem.textContent) + cambio;
+        if (cantidad <= 0 || cantidad > producto.stock) return;
+
+        cantidadElem.textContent = cantidad;
+        input.value = cantidad;
+        totalElem.textContent = (cantidad * producto.precio).toFixed(2);
+        actualizarTotal();
+    }
+
+
+
+
 
     function eliminarProducto(id) {
         document.querySelector(`#tabla-seleccionados tr[data-id="${id}"]`).remove();

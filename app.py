@@ -151,7 +151,6 @@ def test_db():
 
 # Clientes
 
-
 @app.route("/clientes", methods=["GET"])
 @login_required
 def clientes():
@@ -441,26 +440,27 @@ def compras():
         proveedor_id = request.form.get("proveedor")
         productos_seleccionados = {
             key.split("_")[1]: int(value)
-            for key, value in request.form.items() if key.startswith("cantidad_") and int(value) >= 0
+            for key, value in request.form.items() if key.startswith("cantidadcompra_") and int(value) >= 0
         }
 
         total = 0
+        costo_unitario = 0
         for producto_id, cantidad in productos_seleccionados.items():
-            producto = db.execute("SELECT * FROM Productos WHERE id = ?", producto_id)[0]
-            if producto["cantidad"] < cantidad:
-                flash(f"Stock insuficiente para {producto['nombre']}", "error")
-                return redirect("/ventas")
-            db.execute("UPDATE Productos SET stock = stock - ? WHERE id = ?", cantidad, producto_id)
-            total += producto["cos"] * cantidad
+            producto = db.execute("SELECT id,nombre FROM Productos WHERE id = ?", producto_id)[0]
+           # if producto["cantidad"] < cantidad:
+            #    flash(f"Stock insuficiente para {producto['nombre']}", "error")
+           #     return redirect("/ventas")
+            db.execute("UPDATE Productos SET stock = stock + ? WHERE id = ?", cantidad, producto_id)
+            total += producto["costo_unitario"] * cantidad
 
 
-        db.execute("INSERT INTO Compras (proveedor_id, total, costo_unitario, cantidad) VALUES (?, ?, ?)", proveedor_id, total, costo_unitario, cantidad)
+        db.execute("INSERT INTO Compras (proveedor_id, total) VALUES (?, ?)", proveedor_id, total)
         compra_id = db.execute("SELECT last_insert_rowid()")[0]["last_insert_rowid()"]
 
 
         for producto_id, cantidad in productos_seleccionados.items():
-            db.execute("INSERT INTO DetalleVenta (venta_id, producto_id, cantidad) VALUES (?, ?, ?)",
-                       venta_id, producto_id, cantidad)
+            db.execute("INSERT INTO DetalleCompra (compra_id, producto_id, cantidad, costo_unitario) VALUES (?, ?, ?, ?)",
+                       compra_id, producto_id, cantidad, costo_unitario)
 
         ultimo = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
         if ultimo:
@@ -476,10 +476,10 @@ def compras():
         db.execute("""
             INSERT INTO Facturas (venta_id, numero_factura, fecha_emision)
             VALUES (?, ?, ?)
-        """, venta_id, numero_factura, fecha_emision)
+        """, compra_id, numero_factura, fecha_emision)
 
         flash(f"Venta procesada con éxito. Factura N° {numero_factura}", "success")
-        return redirect(f"/ventas?venta_id={venta_id}")
+        return redirect(f"/ventas?venta_id={compra_id}")
 
     proveedores = db.execute("SELECT * FROM Proveedores")
     productos = db.execute("SELECT * FROM Productos")
