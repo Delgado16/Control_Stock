@@ -445,22 +445,22 @@ def compras():
 
         total = 0
         costo_unitario = 0
-        for producto_id, cantidad in productos_seleccionados.items():
+        for producto_id, cantidadcompra in productos_seleccionados.items():
             producto = db.execute("SELECT id,nombre FROM Productos WHERE id = ?", producto_id)[0]
            # if producto["cantidad"] < cantidad:
             #    flash(f"Stock insuficiente para {producto['nombre']}", "error")
            #     return redirect("/ventas")
             db.execute("UPDATE Productos SET stock = stock + ? WHERE id = ?", cantidad, producto_id)
-            total += producto["costo_unitario"] * cantidad
+            total += producto["costo_unitario"] * cantidadcompra
 
 
         db.execute("INSERT INTO Compras (proveedor_id, total) VALUES (?, ?)", proveedor_id, total)
         compra_id = db.execute("SELECT last_insert_rowid()")[0]["last_insert_rowid()"]
 
 
-        for producto_id, cantidad in productos_seleccionados.items():
+        for producto_id, cantidadcompra in productos_seleccionados.items():
             db.execute("INSERT INTO DetalleCompra (compra_id, producto_id, cantidad, costo_unitario) VALUES (?, ?, ?, ?)",
-                       compra_id, producto_id, cantidad, costo_unitario)
+                       compra_id, producto_id, cantidadcompra, costo_unitario)
 
         ultimo = db.execute("SELECT numero_factura FROM Facturas ORDER BY id DESC LIMIT 1")
         if ultimo:

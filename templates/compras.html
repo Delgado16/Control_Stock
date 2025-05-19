@@ -54,7 +54,7 @@
                     <tr>
                         <th>Nombre</th>
                         <th>Cantidad</th>
-                        <th>Precio</th>
+                        <th>Costo</th>
                         <th>Total</th>
                         <th>Acción</th>
                     </tr>
@@ -119,8 +119,8 @@
                 fila.innerHTML = `
                     <td>${producto.nombre}</td>
                     <td>${producto.descripcion}</td>
-                    <td contenteditable="true" type="number" id="cantidadcompra"></td>
-                    <td contenteditable="true" type="number" id="costo"></td>
+                    <td contenteditable="true" type="number" id="cantidadcompra" name="cantidadcompra"></td>
+                    <td contenteditable="true" type="number" id="costocompra" name="costo"></td>
                     <td><button type="button" class="btn btn-sm btn-success" onclick="agregarProductocompra(${producto.id})">Agregar</button></td>
                 `;
 
@@ -134,15 +134,17 @@
         const tbody = document.querySelector("#tabla-seleccionados tbody");
         let fila = tbody.querySelector(`tr[data-id="${id}"]`);
 
+
         if (!fila) {
             fila = document.createElement("tr");
             fila.setAttribute("data-id", id);
             fila.innerHTML = `
                 <td>${producto.nombre}</td>
+                <td>${producto.cantidadcompra}</td>
                 <td>
                     <div class="d-flex align-items-center justify-content-center">
                         <button type="button" class="btn btn-sm btn-secondary" onclick="modificarCantidad(${id}, -1)">-</button>
-                        <span class="mx-2 cantidadcompra" data-id="${id}">1</span>
+                        <span class="mx-2 cantidadcompra" data-id="cantidadcompra_${id}">1</span>
                         <button type="button" class="btn btn-sm btn-secondary" onclick="modificarCantidad(${id}, 1)">+</button>
                     </div>
                     <input type="hidden" name="cantidadcompra_${id}" value="1" id="input_cantidadcompra_${id}">
